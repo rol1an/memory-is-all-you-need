@@ -68,11 +68,26 @@ export interface GraphStats {
   placeholders: number
 }
 
+/** 使用侧体检数字（transcript 普查），打开第一屏直接展示 */
+export interface UsageStats {
+  /** transcript 保留窗口（天），由最早/最晚会话文件推算 */
+  windowDays: number
+  /** 窗口内主会话总数（全部项目） */
+  sessions: number
+  /** 发生在带记忆项目里的会话数 */
+  sessionsWithMemory: number
+  /** 打开过至少一条记忆正文的会话数 */
+  sessionsReadingMemory: number
+  /** 窗口内 MEMORY.md 索引注入总字节 = Σ(桶会话数 × 桶索引大小) */
+  injectedIndexBytes: number
+}
+
 export interface GraphPayload {
   nodes: MemNode[]
   links: MemLink[]
   buckets: BucketInfo[]
   stats: GraphStats
+  usage?: UsageStats
   /** home 目录的桶名编码前缀，web 侧用它把桶名缩成短名 */
   homePrefix: string
   generatedAt: number

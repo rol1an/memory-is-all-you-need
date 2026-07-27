@@ -106,6 +106,64 @@ async function parseFile(file: string): Promise<Map<string, number>> {
   return keys
 }
 
+export interface TranscriptCensus {
+  /** 桶 → 主会话数（桶目录下顶层 .jsonl，与 ReadStats 的会话口径一致） */
+  perBucket: Map<string, number>
+  sessions: number
+  windowDays: number
+  /** 打开过至少一条记忆正文的主会话数（ReadStats 全部会话 id 的并集） */
+  reading: number
+}
+
+/** 便宜的 stat 级普查：不读内容，只数会话文件和时间窗口 */
+export function censusTranscripts(stats: ReadStats, root: string = PROJECTS_ROOT): TranscriptCensus {
+  const perBucket = new Map<string, number>()
+  let minMt = Infinity
+  let maxMt = -Infinity
+  let sessions = 0
+  let buckets: string[] = []
+  try {
+    buckets = fs.readdirSync(root)
+  } catch {
+    /* 目录不存在 → 空普查 */
+  }
+  for (const b of buckets) {
+    const dir = path.join(root, b)
+    let items: string[] = []
+    try {
+      items = fs.readdirSync(dir)
+    } catch {
+      continue
+    }
+    let n = 0
+    for (const it of items) {
+      if (!it.endsWith('.jsonl')) continue
+      try {
+        const mt = fs.statSync(path.join(dir, it)).mtimeMs
+        minMt = Math.min(minMt, mt)
+        maxMt = Math.max(maxMt, mt)
+      } catch {
+        continue
+      }
+      n++
+    }
+    if (n > 0) perBucket.set(b, n)
+    sessions += n
+  }
+  // 只算读过条目正文的会话；MEMORY.md 是索引，每次会话都注入，读它不算"用了记忆"
+  const readingSessions = new Set<string>()
+  for (const [key, s] of stats) {
+    if (key.endsWith('/MEMORY.md')) continue
+    for (const sid of s.sessions) readingSessions.add(sid)
+  }
+  return {
+    perBucket,
+    sessions,
+    windowDays: sessions > 0 ? Math.max(1, Math.ceil((maxMt - minMt) / 86_400_000)) : 0,
+    reading: readingSessions.size,
+  }
+}
+
 /** 增量扫描（按 mtime+size 缓存，只重读变过的 transcript），返回聚合结果 */
 export async function refreshReadStats(root: string = PROJECTS_ROOT): Promise<ReadStats> {
   const transcripts = listTranscripts(root)

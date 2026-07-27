@@ -2,7 +2,7 @@ import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
 import { buildGraph, HOME_PREFIX, PROJECTS_ROOT } from '../src/server/scan.js'
-import { refreshReadStats } from '../src/server/readstats.js'
+import { censusTranscripts, refreshReadStats } from '../src/server/readstats.js'
 import { anonymizeGraph, hash } from '../src/server/anonymize.js'
 import type { GraphPayload } from '../src/shared/types.js'
 
@@ -98,7 +98,8 @@ function assertNoLeak(json: string, real: GraphPayload) {
 }
 
 const readStats = await refreshReadStats()
-const real = buildGraph(PROJECTS_ROOT, readStats)
+// usage 体检块随图导出：全是聚合数字，不含任何文字，脱敏安全
+const real = buildGraph(PROJECTS_ROOT, readStats, censusTranscripts(readStats))
 const anon = anonymizeGraph(real)
 
 fs.mkdirSync(path.join(import.meta.dirname, '..', 'demo'), { recursive: true })

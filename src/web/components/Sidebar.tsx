@@ -14,7 +14,7 @@ const SHELL_RULE_TEXT = [
 const MODES: { key: ColorMode; label: string }[] = [
   { key: 'freshness', label: t('读取热度', 'Read heat') },
   { key: 'mtime', label: t('上次修改', 'Last edited') },
-  { key: 'community', label: t('社区', 'Community') },
+  { key: 'community', label: t('星座', 'Constellations') },
 ]
 const LINK_MODES: { key: LinkMode; label: string }[] = [
   { key: 'always', label: t('常显', 'Always') },
@@ -123,6 +123,14 @@ export default function Sidebar(p: Props) {
             </button>
           ))}
         </div>
+        {p.colorMode === 'community' && (
+          <p className="lens-note">
+            {t(
+              '星座 = 互链自然聚成的社区，连线勾出每座最强的互链骨架，宿名按规模取自二十八宿',
+              'Constellations = link communities; lines trace each figure’s strongest links, named after the 28 Lunar Mansions',
+            )}
+          </p>
+        )}
         {p.colorMode !== 'community' && (
           <div className="fresh-legend">
             <span className={p.colorMode === 'mtime' ? 'fresh-bar mtime' : 'fresh-bar'} />

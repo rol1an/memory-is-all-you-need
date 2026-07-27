@@ -13,9 +13,10 @@ import {
   type MemNode,
   type MemType,
   type Shell,
+  type UsageStats,
 } from '../shared/types.js'
 import { setBucketPrefix, shortBucket } from '../shared/bucket.js'
-import type { ReadStats } from './readstats.js'
+import type { ReadStats, TranscriptCensus } from './readstats.js'
 
 export const PROJECTS_ROOT =
   process.env.CLAUDE_PROJECTS_DIR || path.join(os.homedir(), '.claude', 'projects')
@@ -162,7 +163,11 @@ function scanEntries(root: string): { entries: RawEntry[]; buckets: BucketInfo[]
   return { entries, buckets }
 }
 
-export function buildGraph(root: string = PROJECTS_ROOT, readStats: ReadStats = new Map()): GraphPayload {
+export function buildGraph(
+  root: string = PROJECTS_ROOT,
+  readStats: ReadStats = new Map(),
+  census?: TranscriptCensus,
+): GraphPayload {
   const { entries, buckets } = scanEntries(root)
 
   // 同 slug 跨桶副本合并为一个节点：同一条经验只画一个点
@@ -298,10 +303,30 @@ export function buildGraph(root: string = PROJECTS_ROOT, readStats: ReadStats = 
   const links = [...linkAgg.values()]
   const orphans = nodes.filter((n) => !n.placeholder && n.inDegree === 0 && n.outDegree === 0).length
 
+  // 体检数字：会话规模 × 索引注入量（每会话注入其所在桶的 MEMORY.md 索引）
+  let usage: UsageStats | undefined
+  if (census) {
+    let sessionsWithMemory = 0
+    let injectedIndexBytes = 0
+    for (const b of buckets) {
+      const n = census.perBucket.get(b.id) ?? 0
+      sessionsWithMemory += n
+      injectedIndexBytes += n * b.indexBytes
+    }
+    usage = {
+      windowDays: census.windowDays,
+      sessions: census.sessions,
+      sessionsWithMemory,
+      sessionsReadingMemory: census.reading,
+      injectedIndexBytes,
+    }
+  }
+
   return {
     nodes,
     links,
     buckets,
+    usage,
     stats: {
       files: entries.length,
       merged: merged.size,

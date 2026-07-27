@@ -125,6 +125,27 @@ export default function App() {
     [payload, selectedId],
   )
 
+  // 开屏体检数字：从未被读 / 热内核集中度 从节点算，会话规模 / 索引注入量来自 usage 普查
+  const veil = useMemo(() => {
+    if (!payload) return null
+    const real = payload.nodes.filter((n) => !n.placeholder)
+    const never = real.filter((n) => n.readSessions === 0).length
+    const totalReads = real.reduce((s, n) => s + n.readSessions, 0)
+    const kernel = real.filter((n) => n.shell === 0)
+    const kernelReads = kernel.reduce((s, n) => s + n.readSessions, 0)
+    const u = payload.usage
+    const fmtBytes = (b: number) => (b >= 1024 * 1024 ? `${(b / 1024 / 1024).toFixed(1)}MB` : `${Math.round(b / 1024)}KB`)
+    const chips: { v: string; l: string; hot?: boolean }[] = []
+    if (u && u.sessions > 0) chips.push({ v: String(u.sessions), l: t(`会话 · 近${u.windowDays}天`, `sessions · ${u.windowDays}d`) })
+    chips.push({ v: String(payload.stats.merged), l: t('条记忆', 'memories') })
+    chips.push({ v: String(never), l: t('从未被读', 'never read'), hot: never > 0 })
+    if (totalReads > 0 && kernel.length > 0)
+      chips.push({ v: `${Math.round((100 * kernelReads) / totalReads)}%`, l: t(`读取集中在 ${kernel.length} 条内核`, `of reads hit the ${kernel.length}-memory core`) })
+    if (u && u.injectedIndexBytes > 0) chips.push({ v: fmtBytes(u.injectedIndexBytes), l: t(`索引注入 · ${u.windowDays}天`, `index injected · ${u.windowDays}d`) })
+    const readShare = u && u.sessionsWithMemory > 0 ? Math.round((100 * u.sessionsReadingMemory) / u.sessionsWithMemory) : null
+    return { chips, readShare }
+  }, [payload])
+
   const focusNode = useCallback((id: string) => {
     setSelectedId(id)
     setFocusRequest({ id, token: Date.now() })
@@ -205,10 +226,22 @@ export default function App() {
           <button className="showcase-veil" onClick={() => setShowcase(false)} aria-label={t('进入操纵界面', 'Enter the observatory')}>
             <span className="veil-hint">
               <span className="veil-title">{t('记忆星系', 'Memory galaxy')}</span>
+              {veil && veil.chips.length > 0 && (
+                <span className="veil-stats">
+                  {veil.chips.map((c) => (
+                    <span key={c.l} className={c.hot ? 'veil-stat hot' : 'veil-stat'}>
+                      <span className="vs-num">{c.v}</span>
+                      <span className="vs-label">{c.l}</span>
+                    </span>
+                  ))}
+                </span>
+              )}
               <span className="veil-sub">
-                {payload
-                  ? t(`${payload.stats.merged} 条记忆环绕运行中 · 点击任意处进入`, `${payload.stats.merged} memories in orbit · click anywhere to enter`)
-                  : t('加载中…', 'Loading…')}
+                {!payload
+                  ? t('加载中…', 'Loading…')
+                  : veil?.readShare != null
+                    ? t(`${veil.readShare}% 的会话真的打开过记忆 · 点击任意处进入`, `${veil.readShare}% of sessions actually opened a memory · click anywhere to enter`)
+                    : t(`${payload.stats.merged} 条记忆环绕运行中 · 点击任意处进入`, `${payload.stats.merged} memories in orbit · click anywhere to enter`)}
               </span>
             </span>
           </button>

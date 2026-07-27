@@ -11,7 +11,7 @@ import { deleteInboxItem, listInbox, setInboxStatus } from './inbox.js'
 import { anonymizeEntry, anonymizeGraph } from './anonymize.js'
 import { demoEntry, loadDemoGraphs, pickDemoLang, type DemoGraphs } from './demo.js'
 import { startCardListener } from './card-listener.js'
-import { refreshReadStats, type ReadStats } from './readstats.js'
+import { censusTranscripts, refreshReadStats, type ReadStats } from './readstats.js'
 import type { GraphPayload } from '../shared/types.js'
 
 const PORT = Number(process.env.PORT || 5611)
@@ -24,7 +24,9 @@ const demoGraphs: DemoGraphs | null = DEMO ? loadDemoGraphs() : null
 // 启动先挖一遍 transcript 读取事实（增量缓存，后续刷新只重读变过的会话文件）
 const t0 = Date.now()
 let readStats: ReadStats = DEMO ? new Map() : await refreshReadStats()
-let graph: GraphPayload = demoGraphs ? demoGraphs.zh : buildGraph(PROJECTS_ROOT, readStats)
+let graph: GraphPayload = demoGraphs
+  ? demoGraphs.zh
+  : buildGraph(PROJECTS_ROOT, readStats, censusTranscripts(readStats))
 if (DEMO) {
   console.log(`[claude-lens] demo mode: ${graph.stats.merged} sample memories / ${graph.stats.links} links (nothing on this machine is read)`)
 } else {
@@ -183,7 +185,7 @@ const broadcast = (msg: unknown) => {
 }
 
 function rebuildAndBroadcast(event: string, file: string) {
-  graph = buildGraph(PROJECTS_ROOT, readStats)
+  graph = buildGraph(PROJECTS_ROOT, readStats, censusTranscripts(readStats))
   console.log(`[claude-lens] rebuilt after ${event}: ${file}`)
   broadcast({ type: 'graph', event, file, generatedAt: graph.generatedAt })
 }

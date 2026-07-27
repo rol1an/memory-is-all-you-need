@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import ForceGraph2D, { type ForceGraphMethods } from 'react-force-graph-2d'
 import { forceCollide, forceRadial } from 'd3-force'
 import type { MemLink, MemNode } from '../../shared/types'
-import { NEVER_READ_COLOR, SHELL_LABEL, SHELL_RADIUS, communityColor, heatColor, mtimeColor, withAlpha } from '../lib/palette'
+import { MANSION_NAMES, NEVER_READ_COLOR, SHELL_LABEL, SHELL_RADIUS, communityColor, heatColor, mtimeColor, withAlpha } from '../lib/palette'
 
 export type ColorMode = 'freshness' | 'mtime' | 'community'
 export type LinkMode = 'always' | 'focus' | 'hidden'
@@ -117,6 +117,42 @@ export default function GraphCanvas({
     all.forEach((n, i) => map.set(n.id, all.length > 1 ? i / (all.length - 1) : 0))
     return map
   }, [nodes])
+
+  // 星座：每个互链社区一个星座。骨架线 = 社区内最大生成树（Kruskal，保留最强互链），
+  // 像真星图那样用少数结构线勾出形状而不是画满所有边；名字按规模从大到小领取二十八宿
+  const constellations = useMemo(() => {
+    const byComm = new Map<number, MemNode[]>()
+    for (const n of nodes) {
+      if (n.placeholder || n.community < 0) continue
+      const list = byComm.get(n.community) ?? []
+      list.push(n)
+      byComm.set(n.community, list)
+    }
+    const groups = [...byComm.entries()].filter(([, m]) => m.length >= 3).sort((a, b) => b[1].length - a[1].length)
+    return groups.map(([community, members], i) => {
+      const ids = new Set(members.map((m) => m.id))
+      const parent = new Map<string, string>()
+      const find = (x: string): string => {
+        const p = parent.get(x) ?? x
+        if (p === x) return x
+        const r = find(p)
+        parent.set(x, r)
+        return r
+      }
+      const tree: [string, string][] = []
+      const edges = links
+        .filter((l) => ids.has(l.source) && ids.has(l.target) && l.source !== l.target)
+        .sort((a, b) => b.weight - a.weight)
+      for (const e of edges) {
+        const ra = find(e.source)
+        const rb = find(e.target)
+        if (ra === rb) continue
+        parent.set(ra, rb)
+        tree.push([e.source, e.target])
+      }
+      return { community, name: MANSION_NAMES[i % MANSION_NAMES.length], memberIds: [...ids], tree }
+    })
+  }, [nodes, links])
 
   // 同心轨道力：内核/中核/外核各归其环
   useEffect(() => {
@@ -233,8 +269,47 @@ export default function GraphCanvas({
         }
       }
       ctx.restore()
+
+      // 星座模式：骨架连线 + 悬在星座上缘的宿名（古星图式斜体衬线）。
+      // 位置读上一帧的 posCache——引擎静止后与当帧一致，漂浮期一帧滞后不可察觉
+      if (colorMode === 'community') {
+        const pos = posCache.current
+        ctx.save()
+        for (const c of constellations) {
+          const col = communityColor(c.community)
+          ctx.strokeStyle = withAlpha(col, 0.3)
+          ctx.lineWidth = 0.8 / scale
+          for (const [a, b] of c.tree) {
+            const pa = pos.get(a)
+            const pb = pos.get(b)
+            if (!pa || !pb) continue
+            ctx.beginPath()
+            ctx.moveTo(pa.x, pa.y)
+            ctx.lineTo(pb.x, pb.y)
+            ctx.stroke()
+          }
+          let cx = 0
+          let top = Infinity
+          let k = 0
+          for (const id of c.memberIds) {
+            const p = pos.get(id)
+            if (!p) continue
+            cx += p.x
+            top = Math.min(top, p.y)
+            k++
+          }
+          if (k >= 3) {
+            ctx.font = `italic 500 ${13 / scale}px Georgia, "Songti SC", serif`
+            ctx.textAlign = 'center'
+            ctx.textBaseline = 'bottom'
+            ctx.fillStyle = withAlpha(col, 0.55)
+            ctx.fillText(c.name, cx / k, top - 9 / scale)
+          }
+        }
+        ctx.restore()
+      }
     },
-    [showcase],
+    [showcase, colorMode, constellations],
   )
 
   const paintNode = useCallback(
