@@ -35,7 +35,9 @@ Memory Is All You Need is an observatory built for this quadrant. It turns memor
 Browsing memory used to mean opening files one by one in an editor. Now it's a force-directed star map plus a full-text drawer: search, filter, three coloring modes (read heat / last modified / community clusters) — the shape of hundreds of memories at a glance. Read heat is the default view: the map opens on the question that matters most.
 
 **2. How do the memories relate?**
-`[[wikilink]]`s are buried in file bodies where you can't see them. Now they're visible edges, Louvain auto-communities, and one-click lenses for orphan nodes and dangling references.
+`[[wikilink]]`s are buried in file bodies where you can't see them. Now they're visible edges, Louvain auto-communities, and one-click lenses for orphan nodes and dangling references. Select any memory and its neighborhood lights up — everything else recedes:
+
+![Link lens — select a memory and its linked neighbors light up, with the full entry in the drawer](docs/link-lens.png)
 
 **3. Is the agent actually using them?**
 The darkest corner of the black box. The observatory scans every session transcript (subagents included) for real `Read` events, and sorts memories into three orbits:
@@ -47,8 +49,6 @@ The darkest corner of the black box. The observatory scans every session transcr
 | Outer | **never read** | dead-memory candidates — index lines injected every session, burning tokens for nothing |
 
 Not guessed. Not model-scored. Counted.
-
-![Read-heat mode — hot memories burn like embers, the cold majority recedes into dark points](docs/heat-mode.png)
 
 **4. Where does memory come from?**
 No longer just "hey, remember this" — see the supply side below.
