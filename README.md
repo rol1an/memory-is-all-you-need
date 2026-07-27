@@ -4,7 +4,11 @@
 
 > Your agent reads and writes memory every day. When was the last time you actually *saw* that memory?
 
-![Live tour — the memory galaxy, read-heat view and community clusters](docs/demo.gif)
+```bash
+npx memory-is-all-you-need --demo
+```
+
+![Live tour — the memory galaxy, read-heat view and community clusters](https://raw.githubusercontent.com/rol1an/memory-is-all-you-need/master/docs/demo.gif)
 
 ## Start with Anthropic's four quadrants
 
@@ -37,7 +41,7 @@ Browsing memory used to mean opening files one by one in an editor. Now it's a f
 **2. How do the memories relate?**
 `[[wikilink]]`s are buried in file bodies where you can't see them. Now they're visible edges, Louvain auto-communities, and one-click lenses for orphan nodes and dangling references. Select any memory and its neighborhood lights up — everything else recedes:
 
-![Link lens — select a memory and its linked neighbors light up, with the full entry in the drawer](docs/link-lens.png)
+![Link lens — select a memory and its linked neighbors light up, with the full entry in the drawer](https://raw.githubusercontent.com/rol1an/memory-is-all-you-need/master/docs/link-lens.png)
 
 **3. Is the agent actually using them?**
 The darkest corner of the black box. The observatory scans every session transcript (subagents included) for real `Read` events, and sorts memories into three orbits:
@@ -50,7 +54,7 @@ The darkest corner of the black box. The observatory scans every session transcr
 
 Not guessed. Not model-scored. Counted.
 
-![Read-heat view — hot memories burn like embers, the cold majority recedes into dark points](docs/hero.png)
+![Read-heat view — hot memories burn like embers, the cold majority recedes into dark points](https://raw.githubusercontent.com/rol1an/memory-is-all-you-need/master/docs/hero.png)
 
 **4. Where does memory come from?**
 No longer just "hey, remember this" — see the supply side below.
@@ -79,21 +83,33 @@ Graph parsing, orbit layering, clustering, dedup, constraint mining — all dete
 
 ## Quick start
 
+Sixty seconds, zero setup — a bundled sample galaxy (real structure exported from a real memory base, every word replaced; nothing on your machine is read):
+
+```bash
+npx memory-is-all-you-need --demo
+```
+
+Then point it at your own memory (reads `~/.claude/projects`, binds to localhost only):
+
+```bash
+npx memory-is-all-you-need
+```
+
+Flags: `--dir <path>` overrides the memory root, `--port <n>` the port (default 5611), `--anonymize` keeps your real graph but swaps all titles for placeholders (safe to screenshot), `-h` for the rest. The UI chrome follows your browser language (English / Chinese); deeper panels are Chinese-first for now.
+
+### Hacking on it
+
 ```bash
 npm install
 npm run dev    # server :5611 (parsing + WebSocket) + web :5610 (Vite HMR)
 ```
 
-Open http://localhost:5610. The memory root defaults to `~/.claude/projects`; override with `CLAUDE_PROJECTS_DIR`.
-
-Production mode (front and back on one port):
+Open http://localhost:5610. Production mode (front and back on one port):
 
 ```bash
 npm run build
-npx tsx src/server/index.ts   # http://localhost:5611
+node dist-server/index.js   # http://localhost:5611
 ```
-
-> Note: the UI copy is currently Chinese-first.
 
 ### Run as a daemon (macOS)
 
@@ -117,6 +133,7 @@ cp scripts/scan-job.env.example scripts/scan-job.env   # gitignored
 | `LENS_SCAN_PERSONA` | How the drafting prompt refers to you |
 | `LENS_NOTIFY_CHAT` | chat_id of the review-card group (defaults to searching by group name) |
 | `LENS_ANONYMIZE=1` | Screenshot mode: the star map keeps your real graph structure but swaps all titles and bucket names for placeholders — take demo shots of real data without leaking content |
+| `LENS_DEMO=1` | Demo mode (same as `--demo`): serve the bundled sample galaxy, read-only, nothing on your machine is scanned |
 
 The Feishu loop (scanner + review cards) requires a logged-in [lark-cli](https://open.feishu.cn/); without it, every local feature (star map / editing / comments / constraint mining) still works.
 

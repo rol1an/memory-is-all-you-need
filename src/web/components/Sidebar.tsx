@@ -1,4 +1,5 @@
 import { SHELL_RULE, type BucketInfo, type GraphStats, type MemType, type Shell } from '../../shared/types'
+import { t } from '../lib/i18n'
 import { SHELL_LABEL, TYPE_COLOR, TYPE_LABEL } from '../lib/palette'
 import type { LensFilter } from '../App'
 import type { ColorMode, LinkMode } from './GraphCanvas'
@@ -6,19 +7,19 @@ import type { ColorMode, LinkMode } from './GraphCanvas'
 const TYPES: MemType[] = ['feedback', 'user', 'project', 'reference', 'unknown']
 const SHELLS: Shell[] = [0, 1, 2]
 const SHELL_RULE_TEXT = [
-  `≥ ${SHELL_RULE.kernel} 会话读过`,
-  `读过 ${SHELL_RULE.mid}–${SHELL_RULE.kernel - 1} 次`,
-  '从未被读',
+  t(`≥ ${SHELL_RULE.kernel} 会话读过`, `read in ≥ ${SHELL_RULE.kernel} sessions`),
+  t(`读过 ${SHELL_RULE.mid}–${SHELL_RULE.kernel - 1} 次`, `read ${SHELL_RULE.mid}–${SHELL_RULE.kernel - 1} times`),
+  t('从未被读', 'never read'),
 ]
 const MODES: { key: ColorMode; label: string }[] = [
-  { key: 'freshness', label: '读取热度' },
-  { key: 'mtime', label: '上次修改' },
-  { key: 'community', label: '社区' },
+  { key: 'freshness', label: t('读取热度', 'Read heat') },
+  { key: 'mtime', label: t('上次修改', 'Last edited') },
+  { key: 'community', label: t('社区', 'Community') },
 ]
 const LINK_MODES: { key: LinkMode; label: string }[] = [
-  { key: 'always', label: '常显' },
-  { key: 'focus', label: '悬停' },
-  { key: 'hidden', label: '隐藏' },
+  { key: 'always', label: t('常显', 'Always') },
+  { key: 'focus', label: t('悬停', 'Hover') },
+  { key: 'hidden', label: t('隐藏', 'Hidden') },
 ]
 
 interface Props {
@@ -47,38 +48,43 @@ export default function Sidebar(p: Props) {
         <div className="stat-grid">
           <div className="stat">
             <span className="stat-num">{p.stats.merged}</span>
-            <span className="stat-label">记忆{p.stats.files > p.stats.merged ? `（${p.stats.files} 份文件）` : ''}</span>
+            <span className="stat-label">
+              {t('记忆', 'memories')}
+              {p.stats.files > p.stats.merged ? t(`（${p.stats.files} 份文件）`, ` (${p.stats.files} files)`) : ''}
+            </span>
           </div>
           <div className="stat">
             <span className="stat-num">{p.stats.links}</span>
-            <span className="stat-label">互链</span>
+            <span className="stat-label">{t('互链', 'links')}</span>
           </div>
           <button
             className={p.lens === 'orphans' ? 'stat clickable active' : 'stat clickable'}
             onClick={() => p.onLens('orphans')}
-            title="只看没有任何互链的记忆"
+            title={t('只看没有任何互链的记忆', 'Show only memories with no links at all')}
           >
             <span className="stat-num">{p.stats.orphans}</span>
-            <span className="stat-label">孤儿 ⌖</span>
+            <span className="stat-label">{t('孤儿', 'orphans')} ⌖</span>
           </button>
           <button
             className={p.lens === 'dangling' ? 'stat clickable active' : 'stat clickable'}
             onClick={() => p.onLens('dangling')}
-            title="只看被引用但还没写的条目"
+            title={t('只看被引用但还没写的条目', 'Show only entries that are referenced but not written yet')}
           >
             <span className="stat-num">{p.stats.placeholders}</span>
-            <span className="stat-label">悬空 ⌖</span>
+            <span className="stat-label">{t('悬空', 'dangling')} ⌖</span>
           </button>
         </div>
         {p.lens && (
           <p className="lens-note">
-            {p.lens === 'orphans' ? '正在只看孤儿记忆——再点一次恢复全图' : '正在只看悬空链接及其引用方——再点一次恢复全图'}
+            {p.lens === 'orphans'
+              ? t('正在只看孤儿记忆——再点一次恢复全图', 'Showing orphans only — click again to restore')
+              : t('正在只看悬空链接及其引用方——再点一次恢复全图', 'Showing dangling links and their citers — click again to restore')}
           </p>
         )}
       </section>
 
       <section className="side-section">
-        <h3 className="side-title">分层 · 按 agent 实际读取</h3>
+        <h3 className="side-title">{t('分层 · 按 agent 实际读取', 'Orbits · by real agent reads')}</h3>
         <ul className="legend">
           {SHELLS.map((s) => {
             const active = p.activeShells.has(s)
@@ -103,8 +109,8 @@ export default function Sidebar(p: Props) {
       </section>
 
       <section className="side-section">
-        <h3 className="side-title">着色</h3>
-        <div className="segmented" role="radiogroup" aria-label="节点着色方式">
+        <h3 className="side-title">{t('着色', 'Coloring')}</h3>
+        <div className="segmented" role="radiogroup" aria-label={t('节点着色方式', 'Node coloring mode')}>
           {MODES.map((m) => (
             <button
               key={m.key}
@@ -123,13 +129,13 @@ export default function Sidebar(p: Props) {
             <div className="fresh-ends">
               {p.colorMode === 'freshness' ? (
                 <>
-                  <span>最热（亮）</span>
-                  <span>最冷 / 从未（暗）</span>
+                  <span>{t('最热（亮）', 'hottest (bright)')}</span>
+                  <span>{t('最冷 / 从未（暗）', 'coldest / never (dark)')}</span>
                 </>
               ) : (
                 <>
-                  <span>刚改过（亮）</span>
-                  <span>久未改（暗）</span>
+                  <span>{t('刚改过（亮）', 'just edited (bright)')}</span>
+                  <span>{t('久未改（暗）', 'stale (dark)')}</span>
                 </>
               )}
             </div>
@@ -138,8 +144,8 @@ export default function Sidebar(p: Props) {
       </section>
 
       <section className="side-section">
-        <h3 className="side-title">连线</h3>
-        <div className="segmented" role="radiogroup" aria-label="连线显示方式">
+        <h3 className="side-title">{t('连线', 'Edges')}</h3>
+        <div className="segmented" role="radiogroup" aria-label={t('连线显示方式', 'Edge display mode')}>
           {LINK_MODES.map((m) => (
             <button
               key={m.key}
@@ -155,7 +161,7 @@ export default function Sidebar(p: Props) {
       </section>
 
       <section className="side-section">
-        <h3 className="side-title">类型</h3>
+        <h3 className="side-title">{t('类型', 'Type')}</h3>
         <ul className="legend">
           {TYPES.map((t) => {
             const count = p.typeCounts[t] ?? 0
@@ -179,7 +185,7 @@ export default function Sidebar(p: Props) {
       </section>
 
       <section className="side-section">
-        <h3 className="side-title">记忆桶</h3>
+        <h3 className="side-title">{t('记忆桶', 'Buckets')}</h3>
         <ul className="legend">
           {p.buckets.map((b) => {
             const active = p.activeBuckets.has(b.id)
@@ -192,7 +198,7 @@ export default function Sidebar(p: Props) {
                   title={b.dir}
                 >
                   <span className="bucket-mark" />
-                  <span className="legend-name">{b.label || '(根)'}</span>
+                  <span className="legend-name">{b.label || t('(根)', '(root)')}</span>
                   <span className="legend-count">{b.count}</span>
                 </button>
               </li>
@@ -202,7 +208,10 @@ export default function Sidebar(p: Props) {
       </section>
 
       <footer className="side-footer">
-        轨道分层来自 transcript 里的真实 Read 事件；跨桶同名条目已合并；全部指标为确定性计算，无模型参与
+        {t(
+          '轨道分层来自 transcript 里的真实 Read 事件；跨桶同名条目已合并；全部指标为确定性计算，无模型参与',
+          'Orbits come from real Read events in session transcripts; same-slug copies across buckets are merged; every metric is deterministic — no model involved',
+        )}
       </footer>
     </aside>
   )

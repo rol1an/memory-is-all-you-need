@@ -1,4 +1,5 @@
 import type { MemType } from '../../shared/types'
+import { isZh, t } from './i18n'
 
 /** 四类记忆的功能色板（深空底上的高亮光源色，配加法混合光晕） */
 export const TYPE_COLOR: Record<MemType, string> = {
@@ -32,10 +33,10 @@ export const TYPE_LABEL: Record<MemType, string> = {
   user: 'user',
   project: 'project',
   reference: 'reference',
-  unknown: '未标注',
+  unknown: t('未标注', 'untyped'),
 }
 
-export const SHELL_LABEL = ['内核', '中核', '外核'] as const
+export const SHELL_LABEL = (isZh ? ['内核', '中核', '外核'] : ['Kernel', 'Mid', 'Outer']) as readonly string[]
 /** 各层节点的轨道半径（图坐标） */
 export const SHELL_RADIUS = [80, 210, 350] as const
 
@@ -106,7 +107,7 @@ export function mtimeColor(t: number): string {
 export function timeAgo(mtime: number, now = Date.now()): string {
   if (!mtime) return '—'
   const days = Math.floor((now - mtime) / 86_400_000)
-  if (days <= 0) return '今天'
-  if (days < 30) return `${days} 天前`
-  return `${Math.floor(days / 30)} 个月前`
+  if (days <= 0) return t('今天', 'today')
+  if (days < 30) return isZh ? `${days} 天前` : `${days}d ago`
+  return isZh ? `${Math.floor(days / 30)} 个月前` : `${Math.floor(days / 30)}mo ago`
 }

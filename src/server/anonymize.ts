@@ -43,7 +43,7 @@ const TITLE_POOL = [
   '团队术语表', '周边工具账号索引', '录屏与截图规范', '文档目录结构约定', '晨会三问模板',
 ]
 
-function hash(s: string): number {
+export function hash(s: string): number {
   let h = 2166136261
   for (let i = 0; i < s.length; i++) {
     h ^= s.charCodeAt(i)

@@ -1,36 +1,63 @@
 {
   "name": "memory-is-all-you-need",
-  "private": true,
   "version": "0.1.0",
+  "description": "A star map for Claude Code's memory: what's actually read, what links where, what's silently burning tokens.",
   "license": "MIT",
   "type": "module",
+  "bin": {
+    "memory-is-all-you-need": "bin/cli.js",
+    "miay": "bin/cli.js"
+  },
+  "files": [
+    "bin",
+    "dist",
+    "dist-server",
+    "demo",
+    "README.zh-CN.md"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/rol1an/memory-is-all-you-need.git"
+  },
+  "homepage": "https://github.com/rol1an/memory-is-all-you-need#readme",
+  "bugs": {
+    "url": "https://github.com/rol1an/memory-is-all-you-need/issues"
+  },
+  "keywords": [
+    "claude-code",
+    "agent-memory",
+    "knowledge-graph",
+    "observability",
+    "visualization",
+    "force-graph"
+  ],
+  "engines": {
+    "node": ">=20.11"
+  },
   "scripts": {
     "dev": "concurrently -k -n server,web \"npm:dev:server\" \"npm:dev:web\"",
     "dev:server": "tsx watch src/server/index.ts",
     "dev:web": "vite",
-    "build": "vite build",
+    "build": "vite build && npm run build:server",
+    "build:server": "esbuild src/server/index.ts --bundle --platform=node --format=esm --packages=external --outfile=dist-server/index.js",
+    "prepublishOnly": "npm run typecheck && npm run build",
     "typecheck": "tsc --noEmit",
+    "export:demo": "tsx scripts/export-demo.ts",
     "mine": "tsx src/server/miner.ts",
     "scan:feishu": "tsx src/server/feishu-scan.ts"
   },
   "dependencies": {
-    "@fontsource/ibm-plex-mono": "^5.2.5",
-    "@fontsource/space-grotesk": "^5.2.5",
     "@hono/node-server": "^1.14.0",
     "chokidar": "^4.0.3",
-    "d3-force": "^3.0.0",
     "graphology": "^0.26.0",
     "graphology-communities-louvain": "^2.0.2",
     "gray-matter": "^4.0.3",
     "hono": "^4.7.0",
-    "react": "^18.3.1",
-    "react-dom": "^18.3.1",
-    "react-force-graph-2d": "^1.27.0",
-    "react-markdown": "^9.0.3",
-    "remark-gfm": "^4.0.1",
     "ws": "^8.18.1"
   },
   "devDependencies": {
+    "@fontsource/ibm-plex-mono": "^5.2.5",
+    "@fontsource/space-grotesk": "^5.2.5",
     "@types/d3-force": "^3.0.10",
     "@types/node": "^20.17.0",
     "@types/react": "^18.3.18",
@@ -38,6 +65,13 @@
     "@types/ws": "^8.18.0",
     "@vitejs/plugin-react": "^4.3.4",
     "concurrently": "^9.1.2",
+    "d3-force": "^3.0.0",
+    "esbuild": "^0.25.0",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "react-force-graph-2d": "^1.27.0",
+    "react-markdown": "^9.0.3",
+    "remark-gfm": "^4.0.1",
     "tsx": "^4.19.3",
     "typescript": "^5.7.3",
     "vite": "^6.2.0"

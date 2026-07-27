@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import type { MemNode } from '../../shared/types'
 import { shortBucket } from '../../shared/bucket'
+import { t } from '../lib/i18n'
 import { TYPE_COLOR } from '../lib/palette'
 
 interface Props {
@@ -52,13 +53,13 @@ export default function TopBar({ nodes, live, inboxPending, onFocus, onNewEntry,
           ◉
         </span>
         <span className="brand-name">Memory Is All You Need</span>
-        <span className="brand-sub">记忆观测台</span>
+        <span className="brand-sub">{t('记忆观测台', 'memory observatory')}</span>
       </div>
 
       <div className="search-box" ref={boxRef}>
         <input
           type="search"
-          placeholder="搜索记忆（标题 / slug / 描述）"
+          placeholder={t('搜索记忆（标题 / slug / 描述）', 'Search memories (title / slug / description)')}
           value={q}
           onChange={(e) => {
             setQ(e.target.value)
@@ -85,24 +86,27 @@ export default function TopBar({ nodes, live, inboxPending, onFocus, onNewEntry,
         )}
         {open && needle && matches.length === 0 && (
           <ul className="search-results">
-            <li className="search-empty">没有匹配的记忆——试试更短的关键词</li>
+            <li className="search-empty">{t('没有匹配的记忆——试试更短的关键词', 'No matching memories — try a shorter keyword')}</li>
           </ul>
         )}
       </div>
 
       <div className="topbar-right">
         <button className="btn ghost inbox-btn" onClick={onInbox}>
-          收件箱
+          {t('收件箱', 'Inbox')}
           {inboxPending > 0 && <span className="inbox-badge">{inboxPending}</span>}
         </button>
         <button className="btn ghost" onClick={onNewEntry}>
-          ＋ 新建记忆
+          ＋ {t('新建记忆', 'New memory')}
         </button>
-        <button className="btn ghost" onClick={onShowcase} title="回到星系展示">
-          ✦ 展示
+        <button className="btn ghost" onClick={onShowcase} title={t('回到星系展示', 'Back to showcase')}>
+          ✦ {t('展示', 'Showcase')}
         </button>
-        <span className={live ? 'live-dot on' : 'live-dot'} title={live ? '监听记忆目录中' : '连接断开，重连中'} />
-        <span className="live-label">{live ? '实时监听' : '重连中…'}</span>
+        <span
+          className={live ? 'live-dot on' : 'live-dot'}
+          title={live ? t('监听记忆目录中', 'Watching memory dirs') : t('连接断开，重连中', 'Disconnected, retrying')}
+        />
+        <span className="live-label">{live ? t('实时监听', 'Live') : t('重连中…', 'Reconnecting…')}</span>
       </div>
     </header>
   )

@@ -4,7 +4,11 @@
 
 > 你的 Agent 每天都在读写记忆。你上一次亲眼看见它的记忆，是什么时候？
 
-![实录——记忆星系、读取热度与社区聚类](docs/demo.gif)
+```bash
+npx memory-is-all-you-need --demo
+```
+
+![实录——记忆星系、读取热度与社区聚类](https://raw.githubusercontent.com/rol1an/memory-is-all-you-need/master/docs/demo.gif)
 
 ## 从 Anthropic 的四象限说起
 
@@ -37,7 +41,7 @@ Memory Is All You Need 就是给这一象限造的观测台：把记忆变成一
 **2. 记忆之间是什么关系？**
 `[[wikilink]]` 埋在正文里根本看不见。现在是可见的边、Louvain 自动社区、孤儿节点和悬空引用一键透镜。选中任意一条记忆，它的邻居连带边一起点亮，其余退入暗场：
 
-![关系透镜——选中记忆点亮邻居与连线，右侧抽屉展开全文](docs/link-lens.png)
+![关系透镜——选中记忆点亮邻居与连线，右侧抽屉展开全文](https://raw.githubusercontent.com/rol1an/memory-is-all-you-need/master/docs/link-lens.png)
 
 **3. 它真的在用这些记忆吗？**
 这是黑盒里最黑的一块。观测台扫描全部会话 transcript（含 subagent）里的真实 `Read` 事件，把记忆分成三层轨道：
@@ -50,7 +54,7 @@ Memory Is All You Need 就是给这一象限造的观测台：把记忆变成一
 
 不是猜的，不是模型评的，是数出来的。
 
-![读取热度——热记忆像余烬在烧，冷的多数退成暗点](docs/hero.png)
+![读取热度——热记忆像余烬在烧，冷的多数退成暗点](https://raw.githubusercontent.com/rol1an/memory-is-all-you-need/master/docs/hero.png)
 
 **4. 记忆从哪来？**
 不再只靠"帮我记一下"——见下面的供给侧。
@@ -79,18 +83,32 @@ Memory Is All You Need 就是给这一象限造的观测台：把记忆变成一
 
 ## 快速开始
 
+60 秒零配置——内置样例星系（结构从一份真实记忆库导出，文字全部替换；不读你机器上的任何文件）：
+
+```bash
+npx memory-is-all-you-need --demo
+```
+
+然后指向你自己的记忆（默认读 `~/.claude/projects`，只绑 localhost）：
+
+```bash
+npx memory-is-all-you-need
+```
+
+参数：`--dir <path>` 覆盖记忆目录，`--port <n>` 换端口（默认 5611），`--anonymize` 保留真实图谱但标题全换占位（可安全截图），`-h` 看其余。界面骨架文案跟浏览器语言走（中 / 英）。
+
+### 本地开发
+
 ```bash
 npm install
 npm run dev    # server :5611（解析 + WebSocket）+ web :5610（Vite 热更新）
 ```
 
-打开 http://localhost:5610 。记忆目录默认 `~/.claude/projects`，环境变量 `CLAUDE_PROJECTS_DIR` 可覆盖。
-
-生产模式（前后端同端口）：
+打开 http://localhost:5610 。生产模式（前后端同端口）：
 
 ```bash
 npm run build
-npx tsx src/server/index.ts   # http://localhost:5611
+node dist-server/index.js   # http://localhost:5611
 ```
 
 ### 常驻化（macOS）
@@ -115,6 +133,7 @@ cp scripts/scan-job.env.example scripts/scan-job.env   # 已 gitignore
 | `LENS_SCAN_PERSONA` | 起草 prompt 里对你的称呼 |
 | `LENS_NOTIFY_CHAT` | 审核卡片群 chat_id（缺省按群名「记忆观测台」搜索） |
 | `LENS_ANONYMIZE=1` | 截图模式：星图保留真实结构，标题和桶名全部换成占位文案——对着真实数据截演示图不泄内容 |
+| `LENS_DEMO=1` | 演示模式（同 `--demo`）：供给内置样例星系，只读，不扫描本机任何文件 |
 
 飞书链路（扫描 + 审核卡片）依赖已登录的 [lark-cli](https://open.feishu.cn/)；不配则纯本地功能（星图/编辑/评论/约束挖掘）全部可用。
 
