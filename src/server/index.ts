@@ -8,6 +8,7 @@ import { buildGraph, listMemoryDirs, readEntry, PROJECTS_ROOT } from './scan.js'
 import { MutateError, addLink, createEntry, deleteEntry, saveEntry } from './mutate.js'
 import { addComment, deleteComment, listComments, setCommentStatus } from './comments.js'
 import { deleteInboxItem, listInbox, setInboxStatus } from './inbox.js'
+import { anonymizeGraph } from './anonymize.js'
 import { startCardListener } from './card-listener.js'
 import { refreshReadStats, type ReadStats } from './readstats.js'
 import type { GraphPayload } from '../shared/types.js'
@@ -26,7 +27,9 @@ console.log(
 
 const app = new Hono()
 
-app.get('/api/graph', (c) => c.json(graph))
+// 匿名截图模式：结构全真、文字全假，对着真实数据截演示图不泄内容
+const ANONYMIZE = process.env.LENS_ANONYMIZE === '1'
+app.get('/api/graph', (c) => c.json(ANONYMIZE ? anonymizeGraph(graph) : graph))
 
 app.get('/api/entry', (c) => {
   const id = c.req.query('id')

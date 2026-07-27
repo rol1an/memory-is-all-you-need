@@ -112,6 +112,7 @@ cp scripts/scan-job.env.example scripts/scan-job.env   # 已 gitignore
 | `LENS_SCAN_BUCKET` | 飞书候选写入哪个记忆桶 |
 | `LENS_SCAN_PERSONA` | 起草 prompt 里对你的称呼 |
 | `LENS_NOTIFY_CHAT` | 审核卡片群 chat_id（缺省按群名「记忆观测台」搜索） |
+| `LENS_ANONYMIZE=1` | 截图模式：星图保留真实结构，标题和桶名全部换成占位文案——对着真实数据截演示图不泄内容 |
 
 飞书链路（扫描 + 审核卡片）依赖已登录的 [lark-cli](https://open.feishu.cn/)；不配则纯本地功能（星图/编辑/评论/约束挖掘）全部可用。
 

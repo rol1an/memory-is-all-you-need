@@ -114,6 +114,7 @@ cp scripts/scan-job.env.example scripts/scan-job.env   # gitignored
 | `LENS_SCAN_BUCKET` | Which memory bucket Feishu candidates are written to |
 | `LENS_SCAN_PERSONA` | How the drafting prompt refers to you |
 | `LENS_NOTIFY_CHAT` | chat_id of the review-card group (defaults to searching by group name) |
+| `LENS_ANONYMIZE=1` | Screenshot mode: the star map keeps your real graph structure but swaps all titles and bucket names for placeholders — take demo shots of real data without leaking content |
 
 The Feishu loop (scanner + review cards) requires a logged-in [lark-cli](https://open.feishu.cn/); without it, every local feature (star map / editing / comments / constraint mining) still works.
 
