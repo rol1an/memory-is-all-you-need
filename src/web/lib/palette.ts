@@ -50,7 +50,14 @@ export function communityColor(c: number): string {
   return COMMUNITY_PALETTE[c % COMMUNITY_PALETTE.length]
 }
 
-/** 星座命名池：二十八宿（英文用其传统译名），星座模式按社区规模从大到小领取 */
+/**
+ * 星座命名池：默认十二星座（认知度高），可切二十八宿（古星图味）。
+ * 按社区规模从大到小领取，池子用尽的小社区不命名（只保留配色，不参与悬停）
+ */
+export const ZODIAC_NAMES: readonly string[] = isZh
+  ? ['白羊座', '金牛座', '双子座', '巨蟹座', '狮子座', '处女座', '天秤座', '天蝎座', '射手座', '摩羯座', '水瓶座', '双鱼座']
+  : ['Aries', 'Taurus', 'Gemini', 'Cancer', 'Leo', 'Virgo', 'Libra', 'Scorpio', 'Sagittarius', 'Capricorn', 'Aquarius', 'Pisces']
+
 export const MANSION_NAMES: readonly string[] = isZh
   ? ['角宿', '亢宿', '氐宿', '房宿', '心宿', '尾宿', '箕宿', '斗宿', '牛宿', '女宿', '虚宿', '危宿', '室宿', '壁宿', '奎宿', '娄宿', '胃宿', '昴宿', '毕宿', '觜宿', '参宿', '井宿', '鬼宿', '柳宿', '星宿', '张宿', '翼宿', '轸宿']
   : ['Horn', 'Neck', 'Root', 'Room', 'Heart', 'Tail', 'Basket', 'Dipper', 'Ox', 'Maiden', 'Void', 'Rooftop', 'Camp', 'Wall', 'Legs', 'Bond', 'Stomach', 'Pleiades', 'Net', 'Beak', 'Orion', 'Well', 'Ghost', 'Willow', 'Star', 'Bow', 'Wings', 'Chariot']

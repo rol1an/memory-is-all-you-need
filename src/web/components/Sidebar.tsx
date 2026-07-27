@@ -126,8 +126,8 @@ export default function Sidebar(p: Props) {
         {p.colorMode === 'community' && (
           <p className="lens-note">
             {t(
-              '星座 = 互链自然聚成的社区，连线勾出每座最强的互链骨架，宿名按规模取自二十八宿',
-              'Constellations = link communities; lines trace each figure’s strongest links, named after the 28 Lunar Mansions',
+              '星座 = 互链自然聚成的社区。悬停星座名点亮它的星与连线；左上角可切换十二星座 / 二十八宿命名',
+              'Constellations = link communities. Hover a name to light up its stars and lines; toggle zodiac / 28-mansion naming at top-left',
             )}
           </p>
         )}

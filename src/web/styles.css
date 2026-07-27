@@ -550,6 +550,33 @@ a:focus-visible {
     var(--bg);
 }
 
+/* 指针悬在星座名上：canvas 光标改成手型 */
+.graph-wrap.const-hover canvas {
+  cursor: pointer !important;
+}
+
+/* 星座命名方案切换：十二星座 ⇄ 二十八宿 */
+.scheme-toggle {
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  z-index: 5;
+  padding: 5px 12px;
+  border-radius: 999px;
+  font-size: 11.5px;
+  letter-spacing: 0.04em;
+  color: var(--muted);
+  border: 1px solid var(--border);
+  background: rgba(14, 17, 24, 0.72);
+  backdrop-filter: blur(4px);
+  transition: color 0.15s, border-color 0.15s;
+}
+
+.scheme-toggle:hover {
+  color: var(--ink);
+  border-color: rgba(148, 158, 192, 0.35);
+}
+
 /* ── 详情抽屉 ── */
 .drawer {
   position: absolute;

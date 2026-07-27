@@ -2,7 +2,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import ForceGraph2D, { type ForceGraphMethods } from 'react-force-graph-2d'
 import { forceCollide, forceRadial } from 'd3-force'
 import type { MemLink, MemNode } from '../../shared/types'
-import { MANSION_NAMES, NEVER_READ_COLOR, SHELL_LABEL, SHELL_RADIUS, communityColor, heatColor, mtimeColor, withAlpha } from '../lib/palette'
+import { t } from '../lib/i18n'
+import { MANSION_NAMES, NEVER_READ_COLOR, SHELL_LABEL, SHELL_RADIUS, ZODIAC_NAMES, communityColor, heatColor, mtimeColor, withAlpha } from '../lib/palette'
 
 export type ColorMode = 'freshness' | 'mtime' | 'community'
 export type LinkMode = 'always' | 'focus' | 'hidden'
@@ -52,6 +53,13 @@ export default function GraphCanvas({
   const wrapRef = useRef<HTMLDivElement>(null)
   const [size, setSize] = useState({ w: 800, h: 600 })
   const [hoverId, setHoverId] = useState<string | null>(null)
+  // 星座命名方案：默认十二星座，可切二十八宿；hoverConst = 指针悬在哪个星座名上
+  const [scheme, setScheme] = useState<'zodiac' | 'mansions'>(() =>
+    localStorage.getItem('lens-constellation-scheme') === 'mansions' ? 'mansions' : 'zodiac',
+  )
+  const [hoverConst, setHoverConst] = useState<number | null>(null)
+  // 星座名的图坐标包围盒，每帧由 paintPre 重写，鼠标移动时做命中测试
+  const labelBoxes = useRef<{ c: number; x0: number; y0: number; x1: number; y1: number }[]>([])
   const didFit = useRef(false)
   // 展示模式过渡量 0..1，渲染帧内插值，避免布尔切换的生硬
   const showcaseT = useRef(showcase ? 1 : 0)
@@ -119,7 +127,7 @@ export default function GraphCanvas({
   }, [nodes])
 
   // 星座：每个互链社区一个星座。骨架线 = 社区内最大生成树（Kruskal，保留最强互链），
-  // 像真星图那样用少数结构线勾出形状而不是画满所有边；名字按规模从大到小领取二十八宿
+  // 像真星图那样用少数结构线勾出形状而不是画满所有边；名字按规模从大到小领取
   const constellations = useMemo(() => {
     const byComm = new Map<number, MemNode[]>()
     for (const n of nodes) {
@@ -150,9 +158,15 @@ export default function GraphCanvas({
         parent.set(ra, rb)
         tree.push([e.source, e.target])
       }
-      return { community, name: MANSION_NAMES[i % MANSION_NAMES.length], memberIds: [...ids], tree }
+      return { community, rank: i, memberIds: [...ids], tree }
     })
   }, [nodes, links])
+
+  const namePool = scheme === 'zodiac' ? ZODIAC_NAMES : MANSION_NAMES
+
+  useEffect(() => {
+    if (colorMode !== 'community') setHoverConst(null)
+  }, [colorMode])
 
   // 同心轨道力：内核/中核/外核各归其环
   useEffect(() => {
@@ -270,24 +284,32 @@ export default function GraphCanvas({
       }
       ctx.restore()
 
-      // 星座模式：骨架连线 + 悬在星座上缘的宿名（古星图式斜体衬线）。
-      // 位置读上一帧的 posCache——引擎静止后与当帧一致，漂浮期一帧滞后不可察觉
+      // 星座模式：名字常显高亮，图形克制——骨架线只在指针悬到名字上时点亮，
+      // 避免所有星座一起画线的杂乱。位置读上一帧的 posCache（引擎静止后与当帧一致）
+      labelBoxes.current = []
       if (colorMode === 'community') {
         const pos = posCache.current
         ctx.save()
         for (const c of constellations) {
+          const name = namePool[c.rank]
+          if (!name) continue // 池子用尽的小社区不命名，只保留配色
           const col = communityColor(c.community)
-          ctx.strokeStyle = withAlpha(col, 0.3)
-          ctx.lineWidth = 0.8 / scale
-          for (const [a, b] of c.tree) {
-            const pa = pos.get(a)
-            const pb = pos.get(b)
-            if (!pa || !pb) continue
-            ctx.beginPath()
-            ctx.moveTo(pa.x, pa.y)
-            ctx.lineTo(pb.x, pb.y)
-            ctx.stroke()
+          const hovered = hoverConst === c.community
+
+          if (hovered) {
+            ctx.strokeStyle = withAlpha(col, 0.5)
+            ctx.lineWidth = 0.9 / scale
+            for (const [a, b] of c.tree) {
+              const pa = pos.get(a)
+              const pb = pos.get(b)
+              if (!pa || !pb) continue
+              ctx.beginPath()
+              ctx.moveTo(pa.x, pa.y)
+              ctx.lineTo(pb.x, pb.y)
+              ctx.stroke()
+            }
           }
+
           let cx = 0
           let top = Infinity
           let k = 0
@@ -299,17 +321,29 @@ export default function GraphCanvas({
             k++
           }
           if (k >= 3) {
-            ctx.font = `italic 500 ${13 / scale}px Georgia, "Songti SC", serif`
+            cx /= k
+            const fontPx = 13.5 / scale
+            const ly = top - 9 / scale
+            ctx.font = `italic 500 ${fontPx}px Georgia, "Songti SC", serif`
             ctx.textAlign = 'center'
             ctx.textBaseline = 'bottom'
-            ctx.fillStyle = withAlpha(col, 0.55)
-            ctx.fillText(c.name, cx / k, top - 9 / scale)
+            ctx.fillStyle = hovered ? withAlpha(col, 0.98) : withAlpha(col, 0.72)
+            ctx.fillText(name, cx, ly)
+            const w = ctx.measureText(name).width
+            const pad = 5 / scale
+            labelBoxes.current.push({
+              c: c.community,
+              x0: cx - w / 2 - pad,
+              y0: ly - fontPx - pad,
+              x1: cx + w / 2 + pad,
+              y1: ly + pad,
+            })
           }
         }
         ctx.restore()
       }
     },
-    [showcase, colorMode, constellations],
+    [showcase, colorMode, constellations, namePool, hoverConst],
   )
 
   const paintNode = useCallback(
@@ -318,7 +352,9 @@ export default function GraphCanvas({
       posCache.current.set(n.id, { x: n.x, y: n.y })
       const T = showcaseT.current
       const color = nodeColor(n)
-      const dimmed = highlightSet !== null && !highlightSet.has(n.id)
+      // 悬停星座名时，非成员退入暗场——图形只为被指认的那个星座点亮
+      const constDim = hoverConst !== null && colorMode === 'community' && n.community !== hoverConst
+      const dimmed = (highlightSet !== null && !highlightSet.has(n.id)) || constDim
       const active = n.id === hoverId || n.id === selectedId
       // 新旧类模式的独立视觉语法（heat：1=最新 0=最旧 -1=从未读，null=社区模式）：
       // 尺寸/亮度/光晕三通道全由新旧驱动，不再让互链数抢尺寸通道讲第二个故事。
@@ -426,11 +462,44 @@ export default function GraphCanvas({
       }
       ctx.restore()
     },
-    [nodeColor, highlightSet, hoverId, selectedId, colorMode, heatRank, mtimeRank],
+    [nodeColor, highlightSet, hoverId, selectedId, colorMode, heatRank, mtimeRank, hoverConst],
+  )
+
+  // 星座名命中测试：屏幕坐标转图坐标后对包围盒查找（盒子每帧由 paintPre 更新）
+  const onWrapMouseMove = useCallback(
+    (e: React.MouseEvent) => {
+      if (colorMode !== 'community') return
+      const fg = fgRef.current
+      const rect = wrapRef.current?.getBoundingClientRect()
+      if (!fg || !rect) return
+      const gp = fg.screen2GraphCoords(e.clientX - rect.left, e.clientY - rect.top)
+      const hit = labelBoxes.current.find((b) => gp.x >= b.x0 && gp.x <= b.x1 && gp.y >= b.y0 && gp.y <= b.y1)
+      const next = hit ? hit.c : null
+      setHoverConst((prev) => (prev === next ? prev : next))
+    },
+    [colorMode],
   )
 
   return (
-    <div ref={wrapRef} className="graph-wrap">
+    <div
+      ref={wrapRef}
+      className={hoverConst !== null ? 'graph-wrap const-hover' : 'graph-wrap'}
+      onMouseMove={onWrapMouseMove}
+      onMouseLeave={() => setHoverConst(null)}
+    >
+      {colorMode === 'community' && !showcase && (
+        <button
+          className="scheme-toggle"
+          onClick={() => {
+            const next = scheme === 'zodiac' ? 'mansions' : 'zodiac'
+            localStorage.setItem('lens-constellation-scheme', next)
+            setScheme(next)
+          }}
+          title={t('切换星座命名方案', 'Switch constellation naming scheme')}
+        >
+          ⇄ {scheme === 'zodiac' ? t('十二星座', 'Zodiac') : t('二十八宿', '28 Mansions')}
+        </button>
+      )}
       <ForceGraph2D<SimNode, SimLink>
         ref={fgRef}
         width={size.w}
