@@ -8,7 +8,7 @@ import { buildGraph, listMemoryDirs, readEntry, PROJECTS_ROOT } from './scan.js'
 import { MutateError, addLink, createEntry, deleteEntry, saveEntry } from './mutate.js'
 import { addComment, deleteComment, listComments, setCommentStatus } from './comments.js'
 import { deleteInboxItem, listInbox, setInboxStatus } from './inbox.js'
-import { anonymizeGraph } from './anonymize.js'
+import { anonymizeEntry, anonymizeGraph } from './anonymize.js'
 import { startCardListener } from './card-listener.js'
 import { refreshReadStats, type ReadStats } from './readstats.js'
 import type { GraphPayload } from '../shared/types.js'
@@ -27,8 +27,17 @@ console.log(
 
 const app = new Hono()
 
-// 匿名截图模式：结构全真、文字全假，对着真实数据截演示图不泄内容
+// 匿名截图模式：结构全真、文字全假，对着真实数据截演示图/录屏不泄内容。
+// 同时强制只读——防止录屏时误触编辑，把占位文案写回真实记忆文件
 const ANONYMIZE = process.env.LENS_ANONYMIZE === '1'
+if (ANONYMIZE) {
+  app.use('*', async (c, next) => {
+    const mutating = c.req.method !== 'GET' || c.req.path === '/inbox/act'
+    if (mutating && c.req.path.startsWith('/api')) return c.json({ error: '匿名截图模式：只读' }, 403)
+    if (mutating && c.req.path === '/inbox/act') return c.html('<meta charset="utf-8">匿名截图模式：只读', 403)
+    await next()
+  })
+}
 app.get('/api/graph', (c) => c.json(ANONYMIZE ? anonymizeGraph(graph) : graph))
 
 app.get('/api/entry', (c) => {
@@ -36,7 +45,7 @@ app.get('/api/entry', (c) => {
   if (!id) return c.json({ error: 'missing id' }, 400)
   const entry = readEntry(PROJECTS_ROOT, id)
   if (!entry) return c.json({ error: 'not found' }, 404)
-  return c.json(entry)
+  return c.json(ANONYMIZE ? anonymizeEntry(entry) : entry)
 })
 
 app.onError((err, c) => {
@@ -76,7 +85,9 @@ app.post('/api/link', async (c) => {
 })
 
 // ── 记忆评论：人标注意图，CC 下次会话来改 ──
-app.get('/api/comments', (c) => c.json(listComments(PROJECTS_ROOT, c.req.query('slug') || undefined)))
+app.get('/api/comments', (c) =>
+  c.json(ANONYMIZE ? [] : listComments(PROJECTS_ROOT, c.req.query('slug') || undefined)),
+)
 
 app.post('/api/comments', async (c) => {
   const body = await c.req.json()
@@ -98,7 +109,7 @@ app.delete('/api/comments', (c) => {
 })
 
 // ── 记忆候选收件箱：供给侧管线产出，人审后 CC 写入 ──
-app.get('/api/inbox', (c) => c.json(listInbox(PROJECTS_ROOT)))
+app.get('/api/inbox', (c) => c.json(ANONYMIZE ? [] : listInbox(PROJECTS_ROOT)))
 
 app.patch('/api/inbox', async (c) => {
   const { bucket, id, status } = await c.req.json()

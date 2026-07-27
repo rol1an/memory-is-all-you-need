@@ -1,4 +1,4 @@
-import type { GraphPayload } from '../shared/types.js'
+import type { EntryDetail, GraphPayload } from '../shared/types.js'
 
 /**
  * 匿名截图模式（LENS_ANONYMIZE=1）：真实图谱的结构原样保留（互链/分层/读取热度/社区），
@@ -52,6 +52,10 @@ function hash(s: string): number {
   return h >>> 0
 }
 
+// 最近一次 anonymizeGraph 的映射缓存：entry 脱敏与星图保持同名
+let titleCache = new Map<string, string>()
+let bucketCache = new Map<string, string>()
+
 export function anonymizeGraph(g: GraphPayload): GraphPayload {
   // 桶：按条目数降序映射到固定假名，全程稳定
   const order = [...g.buckets].sort((a, b) => b.count - a.count)
@@ -62,6 +66,8 @@ export function anonymizeGraph(g: GraphPayload): GraphPayload {
   const sorted = [...g.nodes].sort((a, b) => hash(a.id) - hash(b.id))
   const titleOf = new Map<string, string>()
   sorted.forEach((n, i) => titleOf.set(n.id, TITLE_POOL[i % TITLE_POOL.length]))
+  titleCache = titleOf
+  bucketCache = bucketAlias
 
   return {
     ...g,
@@ -78,5 +84,24 @@ export function anonymizeGraph(g: GraphPayload): GraphPayload {
       bucket: bucketAlias.get(n.bucket) ?? n.bucket,
       buckets: n.buckets?.map((b) => bucketAlias.get(b) ?? b) ?? n.buckets,
     })),
+  }
+}
+
+/** 详情抽屉脱敏：标题与星图同名，正文/frontmatter/路径/副本桶名全部换占位 */
+export function anonymizeEntry(e: EntryDetail): EntryDetail {
+  const title = titleCache.get(e.id) ?? TITLE_POOL[hash(e.id) % TITLE_POOL.length]
+  const type = (e.frontmatter as { metadata?: { type?: string } })?.metadata?.type
+  return {
+    ...e,
+    title,
+    frontmatter: { name: 'demo-entry', description: `${title}的一句话概括（占位）`, metadata: { type } },
+    body: [
+      `- ${title}的要点记录，短句列表。`,
+      '- 匿名截图模式：真实正文已在服务端替换为占位文案。',
+      '',
+      '**Why:** 结构是真的，文字是假的——录屏/截图不泄内容。',
+    ].join('\n'),
+    path: '(anonymized)',
+    copies: e.copies.map((c) => ({ ...c, bucket: bucketCache.get(c.bucket) ?? 'bucket', path: '(anonymized)' })),
   }
 }
