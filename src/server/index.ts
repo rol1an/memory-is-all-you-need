@@ -1,6 +1,7 @@
 import { serve } from '@hono/node-server'
 import { serveStatic } from '@hono/node-server/serve-static'
 import { Hono } from 'hono'
+import { execFileSync } from 'node:child_process'
 import { WebSocketServer } from 'ws'
 import chokidar from 'chokidar'
 import { buildGraph, listMemoryDirs, readEntry, PROJECTS_ROOT } from './scan.js'
@@ -169,7 +170,20 @@ setInterval(async () => {
 }, READSTATS_REFRESH_MS)
 
 // 飞书卡片按钮回调：点击"记住/不记"改收件箱状态 + 原地更新卡片，并推送前端刷新
-startCardListener(() => broadcast({ type: 'graph', event: 'inbox', file: '(card-action)', generatedAt: Date.now() }))
+// 没装 lark-cli 或显式关闭（LENS_NO_FEISHU=1）时跳过，避免 5 秒重启循环刷错误日志
+const hasLarkCli = (() => {
+  try {
+    execFileSync('which', ['lark-cli'], { stdio: 'ignore' })
+    return true
+  } catch {
+    return false
+  }
+})()
+if (process.env.LENS_NO_FEISHU === '1' || !hasLarkCli) {
+  console.log('[lens] card listener disabled (lark-cli not found or LENS_NO_FEISHU=1)')
+} else {
+  startCardListener(() => broadcast({ type: 'graph', event: 'inbox', file: '(card-action)', generatedAt: Date.now() }))
+}
 
 // 记忆目录变化（外部编辑器 / Claude Code 写入）→ 防抖重建 → 推送前端
 let timer: NodeJS.Timeout | null = null
