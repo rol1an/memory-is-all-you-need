@@ -4,7 +4,7 @@
 
 > Your agent reads and writes memory every day. When was the last time you actually *saw* that memory?
 
-![Star map — every memory a glowing body, orbits from real read counts](docs/hero.png)
+![Live tour — the memory galaxy, read-heat view and community clusters](docs/demo.gif)
 
 ## Start with Anthropic's four quadrants
 
@@ -49,6 +49,8 @@ The darkest corner of the black box. The observatory scans every session transcr
 | Outer | **never read** | dead-memory candidates — index lines injected every session, burning tokens for nothing |
 
 Not guessed. Not model-scored. Counted.
+
+![Read-heat view — hot memories burn like embers, the cold majority recedes into dark points](docs/hero.png)
 
 **4. Where does memory come from?**
 No longer just "hey, remember this" — see the supply side below.
