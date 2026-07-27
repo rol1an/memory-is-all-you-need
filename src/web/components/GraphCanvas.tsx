@@ -2,9 +2,9 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import ForceGraph2D, { type ForceGraphMethods } from 'react-force-graph-2d'
 import { forceCollide, forceRadial } from 'd3-force'
 import type { MemLink, MemNode } from '../../shared/types'
-import { NEVER_READ_COLOR, SHELL_LABEL, SHELL_RADIUS, TYPE_COLOR, communityColor, heatColor, withAlpha } from '../lib/palette'
+import { NEVER_READ_COLOR, SHELL_LABEL, SHELL_RADIUS, communityColor, heatColor, mtimeColor, withAlpha } from '../lib/palette'
 
-export type ColorMode = 'type' | 'freshness' | 'community'
+export type ColorMode = 'freshness' | 'mtime' | 'community'
 export type LinkMode = 'always' | 'focus' | 'hidden'
 
 /** 力导向引擎会在节点对象上挂 x/y 等坐标字段 */
@@ -110,6 +110,14 @@ export default function GraphCanvas({
     return map
   }, [nodes])
 
+  // 上次修改排名分位（0=刚改过 1=最陈旧）；每个文件都有 mtime，无"从未"档
+  const mtimeRank = useMemo(() => {
+    const all = nodes.filter((n) => !n.placeholder).sort((a, b) => b.mtime - a.mtime)
+    const map = new Map<string, number>()
+    all.forEach((n, i) => map.set(n.id, all.length > 1 ? i / (all.length - 1) : 0))
+    return map
+  }, [nodes])
+
   // 同心轨道力：内核/中核/外核各归其环
   useEffect(() => {
     const fg = fgRef.current
@@ -145,13 +153,11 @@ export default function GraphCanvas({
   const nodeColor = useCallback(
     (n: SimNode) => {
       if (n.placeholder) return '#525A6E'
-      if (colorMode === 'freshness') {
-        return n.lastRead > 0 ? heatColor(heatRank.get(n.id) ?? 1) : NEVER_READ_COLOR
-      }
       if (colorMode === 'community') return communityColor(n.community)
-      return TYPE_COLOR[n.type]
+      if (colorMode === 'mtime') return mtimeColor(mtimeRank.get(n.id) ?? 1)
+      return n.lastRead > 0 ? heatColor(heatRank.get(n.id) ?? 1) : NEVER_READ_COLOR
     },
-    [colorMode, heatRank],
+    [colorMode, heatRank, mtimeRank],
   )
 
   /** 帧前：过渡量推进 + 漂浮 + 恒星 + 轨道环 */
@@ -239,14 +245,18 @@ export default function GraphCanvas({
       const color = nodeColor(n)
       const dimmed = highlightSet !== null && !highlightSet.has(n.id)
       const active = n.id === hoverId || n.id === selectedId
-      // 热度模式的独立视觉语法（heat：1=最热 0=最冷 -1=从未读，null=非热度模式）：
-      // 尺寸/亮度/光晕三通道全由热度驱动，不再让互链数抢尺寸通道讲第二个故事
-      const heat =
-        colorMode === 'freshness' && !n.placeholder
+      // 新旧类模式的独立视觉语法（heat：1=最新 0=最旧 -1=从未读，null=社区模式）：
+      // 尺寸/亮度/光晕三通道全由新旧驱动，不再让互链数抢尺寸通道讲第二个故事。
+      // 读取热度按 lastRead 排名，上次修改按 mtime 排名，渲染机制共用
+      const heat = n.placeholder
+        ? null
+        : colorMode === 'freshness'
           ? n.lastRead > 0
             ? 1 - (heatRank.get(n.id) ?? 1)
             : -1
-          : null
+          : colorMode === 'mtime'
+            ? 1 - (mtimeRank.get(n.id) ?? 1)
+            : null
       const r = heat === null ? nodeR(n) : heat < 0 ? 1.5 : 1.7 + 2.4 * Math.pow(heat, 1.6)
 
       ctx.save()
@@ -341,7 +351,7 @@ export default function GraphCanvas({
       }
       ctx.restore()
     },
-    [nodeColor, highlightSet, hoverId, selectedId, colorMode, heatRank],
+    [nodeColor, highlightSet, hoverId, selectedId, colorMode, heatRank, mtimeRank],
   )
 
   return (

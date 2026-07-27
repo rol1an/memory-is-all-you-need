@@ -25,7 +25,7 @@ export default function App() {
   const [activeTypes, setActiveTypes] = useState<Set<MemType>>(new Set(ALL_TYPES))
   const [activeShells, setActiveShells] = useState<Set<Shell>>(new Set(ALL_SHELLS))
   const [lens, setLens] = useState<LensFilter>(null)
-  const [colorMode, setColorMode] = useState<ColorMode>('type')
+  const [colorMode, setColorMode] = useState<ColorMode>('freshness')
   const [linkMode, setLinkMode] = useState<LinkMode>('always')
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [focusRequest, setFocusRequest] = useState<{ id: string; token: number } | null>(null)

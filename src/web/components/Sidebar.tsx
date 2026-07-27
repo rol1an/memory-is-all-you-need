@@ -11,8 +11,8 @@ const SHELL_RULE_TEXT = [
   '从未被读',
 ]
 const MODES: { key: ColorMode; label: string }[] = [
-  { key: 'type', label: '类型' },
   { key: 'freshness', label: '读取热度' },
+  { key: 'mtime', label: '上次修改' },
   { key: 'community', label: '社区' },
 ]
 const LINK_MODES: { key: LinkMode; label: string }[] = [
@@ -117,12 +117,21 @@ export default function Sidebar(p: Props) {
             </button>
           ))}
         </div>
-        {p.colorMode === 'freshness' && (
+        {p.colorMode !== 'community' && (
           <div className="fresh-legend">
-            <span className="fresh-bar" />
+            <span className={p.colorMode === 'mtime' ? 'fresh-bar mtime' : 'fresh-bar'} />
             <div className="fresh-ends">
-              <span>最热（亮）</span>
-              <span>最冷 / 从未（暗）</span>
+              {p.colorMode === 'freshness' ? (
+                <>
+                  <span>最热（亮）</span>
+                  <span>最冷 / 从未（暗）</span>
+                </>
+              ) : (
+                <>
+                  <span>刚改过（亮）</span>
+                  <span>久未改（暗）</span>
+                </>
+              )}
             </div>
           </div>
         )}

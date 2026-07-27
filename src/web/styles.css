@@ -414,6 +414,10 @@ a:focus-visible {
   background: linear-gradient(to right, #ffedcc, #ffae4f 30%, #b56a50 62%, #4e586e);
 }
 
+.fresh-bar.mtime {
+  background: linear-gradient(to right, #f4f8ff, #9cc3ff 30%, #5e76a8 62%, #3a465e);
+}
+
 .fresh-ends {
   display: flex;
   justify-content: space-between;

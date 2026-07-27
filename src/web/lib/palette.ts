@@ -60,12 +60,34 @@ function mix(c1: [number, number, number], c2: [number, number, number], t: numb
   return `#${toHex(lerp(c1[0], c2[0], t))}${toHex(lerp(c1[1], c2[1], t))}${toHex(lerp(c1[2], c2[2], t))}`
 }
 
+type Ramp = Array<[number, [number, number, number]]>
+
+function rampColor(stops: Ramp, t: number): string {
+  const x = Math.min(Math.max(t, 0), 1)
+  for (let i = 1; i < stops.length; i++) {
+    if (x <= stops[i][0]) {
+      const [t0, c0] = stops[i - 1]
+      const [t1, c1] = stops[i]
+      return mix(c0, c1, (x - t0) / (t1 - t0))
+    }
+  }
+  return mix(stops[stops.length - 1][1], stops[stops.length - 1][1], 0)
+}
+
 /** 余烬降温曲线：白炽 → 琥珀 → 余烬红 → 冷板岩。中段过红保饱和，避免琥珀直混板岩的浑浊卡其 */
-const HEAT_STOPS: Array<[number, [number, number, number]]> = [
+const HEAT_STOPS: Ramp = [
   [0, [255, 237, 204]],
   [0.3, [255, 174, 79]],
   [0.62, [181, 106, 80]],
   [1, [78, 88, 110]],
+]
+
+/** 月光降温曲线（上次修改模式）：刚改过的亮月白 → 青蓝 → 暗板岩，与余烬琥珀拉开 */
+const MTIME_STOPS: Ramp = [
+  [0, [244, 248, 255]],
+  [0.3, [156, 195, 255]],
+  [0.62, [94, 118, 168]],
+  [1, [58, 70, 94]],
 ]
 
 /** 从未被读的死记忆候选：比最冷还暗一档 */
@@ -73,15 +95,12 @@ export const NEVER_READ_COLOR = '#39404F'
 
 /** 读取热度色：t 为热度排名分位（0=最热 1=最冷）。用排名而非绝对天数——数据挤在近几天时仍有满量程对比 */
 export function heatColor(t: number): string {
-  const x = Math.min(Math.max(t, 0), 1)
-  for (let i = 1; i < HEAT_STOPS.length; i++) {
-    if (x <= HEAT_STOPS[i][0]) {
-      const [t0, c0] = HEAT_STOPS[i - 1]
-      const [t1, c1] = HEAT_STOPS[i]
-      return mix(c0, c1, (x - t0) / (t1 - t0))
-    }
-  }
-  return '#4E586E'
+  return rampColor(HEAT_STOPS, t)
+}
+
+/** 上次修改色：t 为修改新旧排名分位（0=刚改过 1=最陈旧） */
+export function mtimeColor(t: number): string {
+  return rampColor(MTIME_STOPS, t)
 }
 
 export function timeAgo(mtime: number, now = Date.now()): string {

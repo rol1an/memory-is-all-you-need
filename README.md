@@ -32,7 +32,7 @@ Memory Is All You Need is an observatory built for this quadrant. It turns memor
 ## Four questions it answers
 
 **1. What does it actually remember?**
-Browsing memory used to mean opening files one by one in an editor. Now it's a force-directed star map plus a full-text drawer: search, filter, four coloring modes (type / read heat / community clusters) — the shape of hundreds of memories at a glance.
+Browsing memory used to mean opening files one by one in an editor. Now it's a force-directed star map plus a full-text drawer: search, filter, three coloring modes (read heat / last modified / community clusters) — the shape of hundreds of memories at a glance. Read heat is the default view: the map opens on the question that matters most.
 
 **2. How do the memories relate?**
 `[[wikilink]]`s are buried in file bodies where you can't see them. Now they're visible edges, Louvain auto-communities, and one-click lenses for orphan nodes and dangling references.
