@@ -38,6 +38,26 @@ function hash(s: string): number {
   return (h >>> 0) / 4294967295
 }
 
+/** Andrew 单调链凸包：星座轮廓边界用 */
+function convexHull(pts: { x: number; y: number }[]): { x: number; y: number }[] {
+  if (pts.length <= 3) return [...pts]
+  const s = [...pts].sort((a, b) => a.x - b.x || a.y - b.y)
+  const cross = (o: { x: number; y: number }, a: { x: number; y: number }, b: { x: number; y: number }) =>
+    (a.x - o.x) * (b.y - o.y) - (a.y - o.y) * (b.x - o.x)
+  const lower: { x: number; y: number }[] = []
+  for (const p of s) {
+    while (lower.length >= 2 && cross(lower[lower.length - 2], lower[lower.length - 1], p) <= 0) lower.pop()
+    lower.push(p)
+  }
+  const upper: { x: number; y: number }[] = []
+  for (let i = s.length - 1; i >= 0; i--) {
+    const p = s[i]
+    while (upper.length >= 2 && cross(upper[upper.length - 2], upper[upper.length - 1], p) <= 0) upper.pop()
+    upper.push(p)
+  }
+  return [...lower.slice(0, -1), ...upper.slice(0, -1)]
+}
+
 
 export default function GraphCanvas({
   nodes,
@@ -297,6 +317,45 @@ export default function GraphCanvas({
           const hovered = hoverConst === c.community
 
           if (hovered) {
+            // 轮廓边界：成员凸包沿质心方向外扩，古星图式虚线 + 极淡的域内着色
+            const pts: { x: number; y: number }[] = []
+            for (const id of c.memberIds) {
+              const p = pos.get(id)
+              if (p) pts.push(p)
+            }
+            if (pts.length >= 3) {
+              const hull = convexHull(pts)
+              let hx = 0
+              let hy = 0
+              for (const p of hull) {
+                hx += p.x
+                hy += p.y
+              }
+              hx /= hull.length
+              hy /= hull.length
+              const pad = 14
+              ctx.save()
+              ctx.beginPath()
+              hull.forEach((p, j) => {
+                const dx = p.x - hx
+                const dy = p.y - hy
+                const d = Math.hypot(dx, dy) || 1
+                const ex = p.x + (dx / d) * pad
+                const ey = p.y + (dy / d) * pad
+                if (j === 0) ctx.moveTo(ex, ey)
+                else ctx.lineTo(ex, ey)
+              })
+              ctx.closePath()
+              ctx.fillStyle = withAlpha(col, 0.05)
+              ctx.fill()
+              ctx.setLineDash([4 / scale, 5 / scale])
+              ctx.strokeStyle = withAlpha(col, 0.4)
+              ctx.lineWidth = 1 / scale
+              ctx.lineJoin = 'round'
+              ctx.stroke()
+              ctx.restore()
+            }
+
             ctx.strokeStyle = withAlpha(col, 0.5)
             ctx.lineWidth = 0.9 / scale
             for (const [a, b] of c.tree) {
@@ -448,6 +507,8 @@ export default function GraphCanvas({
       if (active) labelAlpha = 1
       else if (inFocus) labelAlpha = Math.max(labelAlpha, 0.95)
       if (n.placeholder && !active && !inFocus) labelAlpha = 0
+      // 星座场景只看星座：节点标题全部收起，直接悬到某颗星上才显示那一条
+      if (colorMode === 'community' && !active) labelAlpha = 0
       labelAlpha *= 1 - T
       if (labelAlpha > 0.02 && !dimmed) {
         const full = active || inFocus
