@@ -81,6 +81,13 @@ export default function GraphCanvas({
   const [hoverConst, setHoverConst] = useState<number | null>(null)
   // 星座名的图坐标包围盒，每帧由 paintPre 重写，鼠标移动时做命中测试
   const labelBoxes = useRef<{ c: number; x0: number; y0: number; x1: number; y1: number }[]>([])
+  // 队形编排（十二星座方案）：悬停时成员星飞到图形顶点站位，松开回原位。
+  // morphTargets = 目标位；morphReturn = 出发前原位；morphFig = 顶点归属（成员 id 或幽灵点）
+  const morphTargets = useRef<Map<string, { x: number; y: number }> | null>(null)
+  const morphReturn = useRef(new Map<string, { x: number; y: number }>())
+  const morphFig = useRef<{ segs: [number, number][]; owners: (string | null)[]; mapped: { x: number; y: number }[] } | null>(null)
+  // 悬停期间星座名锚定在悬停开始时的位置——队形移动不许把名字从指针下面挪走（会造成悬停振荡）
+  const hoverAnchor = useRef<{ c: number; x0: number; y0: number; x1: number; y1: number } | null>(null)
   const didFit = useRef(false)
   // 展示模式过渡量 0..1，渲染帧内插值，避免布尔切换的生硬
   const showcaseT = useRef(showcase ? 1 : 0)
@@ -189,6 +196,78 @@ export default function GraphCanvas({
     if (colorMode !== 'community') setHoverConst(null)
   }, [colorMode])
 
+  // 悬停开始：给成员星分配图形顶点站位。最近者优先领顶点；星不够用幽灵点补形；
+  // 多出来的星沿图形连线均匀落位（真星座里也有沿线的暗星）
+  useEffect(() => {
+    if (colorMode !== 'community' || scheme !== 'zodiac' || hoverConst === null) {
+      morphTargets.current = null
+      morphFig.current = null
+      return
+    }
+    const c = constellations.find((x) => x.community === hoverConst)
+    const figure = c ? ZODIAC_FIGURES[c.rank] : undefined
+    if (!c || !figure) {
+      morphTargets.current = null
+      morphFig.current = null
+      return
+    }
+    const members = simNodesRef.current.filter(
+      (n) => !n.placeholder && n.community === hoverConst && n.x !== undefined && n.y !== undefined,
+    )
+    if (members.length < 3) return
+    for (const m of members) {
+      if (!morphReturn.current.has(m.id)) morphReturn.current.set(m.id, { x: m.x!, y: m.y! })
+    }
+    let cx = 0
+    let cy = 0
+    for (const m of members) {
+      cx += m.x!
+      cy += m.y!
+    }
+    cx /= members.length
+    cy /= members.length
+    // 队形尺寸随成员数微调，落在轨道间距的量级上
+    const dim = 90 + 9 * Math.sqrt(members.length)
+    let fMinX = Infinity, fMaxX = -Infinity, fMinY = Infinity, fMaxY = -Infinity
+    for (const [fx, fy] of figure.pts) {
+      fMinX = Math.min(fMinX, fx)
+      fMaxX = Math.max(fMaxX, fx)
+      fMinY = Math.min(fMinY, fy)
+      fMaxY = Math.max(fMaxY, fy)
+    }
+    const s = dim / Math.max(fMaxX - fMinX, fMaxY - fMinY, 0.01)
+    const fCx = (fMinX + fMaxX) / 2
+    const fCy = (fMinY + fMaxY) / 2
+    const mapped = figure.pts.map(([fx, fy]) => ({ x: cx + (fx - fCx) * s, y: cy + (fy - fCy) * s }))
+
+    const remaining = new Set(members)
+    const owners: (string | null)[] = mapped.map((pt) => {
+      let best: SimNode | null = null
+      let bestD = Infinity
+      for (const m of remaining) {
+        const d = (m.x! - pt.x) ** 2 + (m.y! - pt.y) ** 2
+        if (d < bestD) {
+          bestD = d
+          best = m
+        }
+      }
+      if (best) remaining.delete(best)
+      return best?.id ?? null
+    })
+    const targets = new Map<string, { x: number; y: number }>()
+    owners.forEach((id, i) => id && targets.set(id, mapped[i]))
+    ;[...remaining].forEach((m, k) => {
+      const [a, b] = figure.segs[k % figure.segs.length]
+      const tt = 0.25 + ((k * 29) % 50) / 100
+      targets.set(m.id, {
+        x: mapped[a].x + (mapped[b].x - mapped[a].x) * tt,
+        y: mapped[a].y + (mapped[b].y - mapped[a].y) * tt,
+      })
+    })
+    morphTargets.current = targets
+    morphFig.current = { segs: figure.segs as [number, number][], owners, mapped }
+  }, [hoverConst, scheme, colorMode, constellations])
+
   // 同心轨道力：内核/中核/外核各归其环
   useEffect(() => {
     const fg = fgRef.current
@@ -204,6 +283,11 @@ export default function GraphCanvas({
   useEffect(() => {
     engineIdle.current = false
     driftBase.current.clear()
+    // 数据刷新会重启力引擎，队形编排全部作废（原位由引擎重新决定）
+    morphTargets.current = null
+    morphFig.current = null
+    morphReturn.current.clear()
+    setHoverConst(null)
     fgRef.current?.d3ReheatSimulation()
   }, [graphData])
 
@@ -238,6 +322,30 @@ export default function GraphCanvas({
       showcaseT.current += (target - showcaseT.current) * 0.055
       const T = showcaseT.current
       const t = performance.now() / 1000
+
+      // 队形编排步进：悬停星座名时成员星飞向图形顶点，松开缓动回原位（只在引擎静止后接管坐标）
+      if (engineIdle.current && colorMode === 'community') {
+        if (morphTargets.current) {
+          for (const n of simNodesRef.current) {
+            const tg = morphTargets.current.get(n.id)
+            if (!tg || n.x === undefined || n.y === undefined) continue
+            n.x += (tg.x - n.x) * 0.13
+            n.y += (tg.y - n.y) * 0.13
+          }
+        } else if (morphReturn.current.size > 0) {
+          for (const n of simNodesRef.current) {
+            const o = morphReturn.current.get(n.id)
+            if (!o || n.x === undefined || n.y === undefined) continue
+            n.x += (o.x - n.x) * 0.13
+            n.y += (o.y - n.y) * 0.13
+            if (Math.hypot(o.x - n.x, o.y - n.y) < 0.5) {
+              n.x = o.x
+              n.y = o.y
+              morphReturn.current.delete(n.id)
+            }
+          }
+        }
+      }
 
       // 漂浮：引擎静止且处于展示模式时，小行星绕基准位轻摆
       if (showcase && engineIdle.current) {
@@ -357,59 +465,34 @@ export default function GraphCanvas({
               ctx.restore()
             }
 
-            const figure = scheme === 'zodiac' ? ZODIAC_FIGURES[c.rank] : undefined
-            if (figure && pts.length >= 3) {
-              // 神话图形叠加：把该星座的经典星图连线按比例安放进疆域（等比缩放、居中、不小于可辨认尺寸）
-              let minX = Infinity
-              let maxX = -Infinity
-              let minY = Infinity
-              let maxY = -Infinity
-              for (const p of pts) {
-                minX = Math.min(minX, p.x)
-                maxX = Math.max(maxX, p.x)
-                minY = Math.min(minY, p.y)
-                maxY = Math.max(maxY, p.y)
+            const fig = scheme === 'zodiac' ? morphFig.current : null
+            if (fig) {
+              // 队形连线：连在真实成员星的当前位置之间（星飞到哪线跟到哪，队形逐帧成形）；
+              // 没有星可站的顶点用小幽灵点补形，保证图形完整
+              const vertexPos = (i: number) => {
+                const id = fig.owners[i]
+                return (id && pos.get(id)) || fig.mapped[i]
               }
-              let fMinX = Infinity
-              let fMaxX = -Infinity
-              let fMinY = Infinity
-              let fMaxY = -Infinity
-              for (const [fx, fy] of figure.pts) {
-                fMinX = Math.min(fMinX, fx)
-                fMaxX = Math.max(fMaxX, fx)
-                fMinY = Math.min(fMinY, fy)
-                fMaxY = Math.max(fMaxY, fy)
-              }
-              const figW = Math.max(fMaxX - fMinX, 0.01)
-              const figH = Math.max(fMaxY - fMinY, 0.01)
-              // 等比装进疆域包围盒；小社区给 45 图距的可辨认下限（约一个轨道间距）
-              const s = Math.max(
-                Math.min((maxX - minX) / figW, (maxY - minY) / figH) * 0.85,
-                45 / Math.max(figW, figH),
-              )
-              const cx0 = (minX + maxX) / 2
-              const cy0 = (minY + maxY) / 2
-              const fCx = (fMinX + fMaxX) / 2
-              const fCy = (fMinY + fMaxY) / 2
-              const mapped = figure.pts.map(([fx, fy]) => ({ x: cx0 + (fx - fCx) * s, y: cy0 + (fy - fCy) * s }))
-
               ctx.save()
               ctx.strokeStyle = withAlpha(col, 0.6)
               ctx.lineWidth = 1.1 / scale
               ctx.lineCap = 'round'
-              for (const [a, b] of figure.segs) {
+              for (const [a, b] of fig.segs) {
+                const pa = vertexPos(a)
+                const pb = vertexPos(b)
                 ctx.beginPath()
-                ctx.moveTo(mapped[a].x, mapped[a].y)
-                ctx.lineTo(mapped[b].x, mapped[b].y)
+                ctx.moveTo(pa.x, pa.y)
+                ctx.lineTo(pb.x, pb.y)
                 ctx.stroke()
               }
-              // 图形顶点画成小星点，读作星图 asterism 而不是几何示意
-              ctx.fillStyle = withAlpha(col, 0.85)
-              for (const p of mapped) {
+              ctx.fillStyle = withAlpha(col, 0.55)
+              fig.owners.forEach((id, i) => {
+                if (id) return
+                const p = fig.mapped[i]
                 ctx.beginPath()
-                ctx.arc(p.x, p.y, 1.4, 0, 2 * Math.PI)
+                ctx.arc(p.x, p.y, 1.3, 0, 2 * Math.PI)
                 ctx.fill()
-              }
+              })
               ctx.restore()
             } else {
               // 二十八宿方案（或无图形数据）：仍用最强互链的生成树骨架
@@ -440,19 +523,26 @@ export default function GraphCanvas({
           if (k >= 3) {
             cx /= k
             const fontPx = 13.5 / scale
-            const ly = top - 9 / scale
+            let lx = cx
+            let ly = top - 9 / scale
+            if (hovered) {
+              // 悬停首帧捕获锚点，之后名字钉在原地——队形收拢时名字不许跟着跑
+              if (hoverAnchor.current?.c !== c.community) hoverAnchor.current = { c: c.community, x0: lx, y0: ly, x1: lx, y1: ly }
+              lx = hoverAnchor.current.x0
+              ly = hoverAnchor.current.y0
+            }
             ctx.font = `italic 500 ${fontPx}px Georgia, "Songti SC", serif`
             ctx.textAlign = 'center'
             ctx.textBaseline = 'bottom'
             ctx.fillStyle = hovered ? withAlpha(col, 0.98) : withAlpha(col, 0.72)
-            ctx.fillText(name, cx, ly)
+            ctx.fillText(name, lx, ly)
             const w = ctx.measureText(name).width
             const pad = 5 / scale
             labelBoxes.current.push({
               c: c.community,
-              x0: cx - w / 2 - pad,
+              x0: lx - w / 2 - pad,
               y0: ly - fontPx - pad,
-              x1: cx + w / 2 + pad,
+              x1: lx + w / 2 + pad,
               y1: ly + pad,
             })
           }
@@ -594,7 +684,10 @@ export default function GraphCanvas({
       const gp = fg.screen2GraphCoords(e.clientX - rect.left, e.clientY - rect.top)
       const hit = labelBoxes.current.find((b) => gp.x >= b.x0 && gp.x <= b.x1 && gp.y >= b.y0 && gp.y <= b.y1)
       const next = hit ? hit.c : null
-      setHoverConst((prev) => (prev === next ? prev : next))
+      setHoverConst((prev) => {
+        if (prev !== next) hoverAnchor.current = null
+        return prev === next ? prev : next
+      })
     },
     [colorMode],
   )
