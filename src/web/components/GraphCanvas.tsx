@@ -4,6 +4,7 @@ import { forceCollide, forceRadial } from 'd3-force'
 import type { MemLink, MemNode } from '../../shared/types'
 import { t } from '../lib/i18n'
 import { MANSION_NAMES, NEVER_READ_COLOR, SHELL_LABEL, SHELL_RADIUS, ZODIAC_NAMES, communityColor, heatColor, mtimeColor, withAlpha } from '../lib/palette'
+import { ZODIAC_FIGURES } from '../lib/zodiacFigures'
 
 export type ColorMode = 'freshness' | 'mtime' | 'community'
 export type LinkMode = 'always' | 'focus' | 'hidden'
@@ -356,16 +357,73 @@ export default function GraphCanvas({
               ctx.restore()
             }
 
-            ctx.strokeStyle = withAlpha(col, 0.5)
-            ctx.lineWidth = 0.9 / scale
-            for (const [a, b] of c.tree) {
-              const pa = pos.get(a)
-              const pb = pos.get(b)
-              if (!pa || !pb) continue
-              ctx.beginPath()
-              ctx.moveTo(pa.x, pa.y)
-              ctx.lineTo(pb.x, pb.y)
-              ctx.stroke()
+            const figure = scheme === 'zodiac' ? ZODIAC_FIGURES[c.rank] : undefined
+            if (figure && pts.length >= 3) {
+              // 神话图形叠加：把该星座的经典星图连线按比例安放进疆域（等比缩放、居中、不小于可辨认尺寸）
+              let minX = Infinity
+              let maxX = -Infinity
+              let minY = Infinity
+              let maxY = -Infinity
+              for (const p of pts) {
+                minX = Math.min(minX, p.x)
+                maxX = Math.max(maxX, p.x)
+                minY = Math.min(minY, p.y)
+                maxY = Math.max(maxY, p.y)
+              }
+              let fMinX = Infinity
+              let fMaxX = -Infinity
+              let fMinY = Infinity
+              let fMaxY = -Infinity
+              for (const [fx, fy] of figure.pts) {
+                fMinX = Math.min(fMinX, fx)
+                fMaxX = Math.max(fMaxX, fx)
+                fMinY = Math.min(fMinY, fy)
+                fMaxY = Math.max(fMaxY, fy)
+              }
+              const figW = Math.max(fMaxX - fMinX, 0.01)
+              const figH = Math.max(fMaxY - fMinY, 0.01)
+              // 等比装进疆域包围盒；小社区给 45 图距的可辨认下限（约一个轨道间距）
+              const s = Math.max(
+                Math.min((maxX - minX) / figW, (maxY - minY) / figH) * 0.85,
+                45 / Math.max(figW, figH),
+              )
+              const cx0 = (minX + maxX) / 2
+              const cy0 = (minY + maxY) / 2
+              const fCx = (fMinX + fMaxX) / 2
+              const fCy = (fMinY + fMaxY) / 2
+              const mapped = figure.pts.map(([fx, fy]) => ({ x: cx0 + (fx - fCx) * s, y: cy0 + (fy - fCy) * s }))
+
+              ctx.save()
+              ctx.strokeStyle = withAlpha(col, 0.6)
+              ctx.lineWidth = 1.1 / scale
+              ctx.lineCap = 'round'
+              for (const [a, b] of figure.segs) {
+                ctx.beginPath()
+                ctx.moveTo(mapped[a].x, mapped[a].y)
+                ctx.lineTo(mapped[b].x, mapped[b].y)
+                ctx.stroke()
+              }
+              // 图形顶点画成小星点，读作星图 asterism 而不是几何示意
+              ctx.fillStyle = withAlpha(col, 0.85)
+              for (const p of mapped) {
+                ctx.beginPath()
+                ctx.arc(p.x, p.y, 1.4, 0, 2 * Math.PI)
+                ctx.fill()
+              }
+              ctx.restore()
+            } else {
+              // 二十八宿方案（或无图形数据）：仍用最强互链的生成树骨架
+              ctx.strokeStyle = withAlpha(col, 0.5)
+              ctx.lineWidth = 0.9 / scale
+              for (const [a, b] of c.tree) {
+                const pa = pos.get(a)
+                const pb = pos.get(b)
+                if (!pa || !pb) continue
+                ctx.beginPath()
+                ctx.moveTo(pa.x, pa.y)
+                ctx.lineTo(pb.x, pb.y)
+                ctx.stroke()
+              }
             }
           }
 
@@ -402,7 +460,7 @@ export default function GraphCanvas({
         ctx.restore()
       }
     },
-    [showcase, colorMode, constellations, namePool, hoverConst],
+    [showcase, colorMode, constellations, namePool, scheme, hoverConst],
   )
 
   const paintNode = useCallback(
